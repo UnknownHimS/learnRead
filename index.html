@@ -3,30 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Tagalog Speech Tutor</title>
+  <title>Tagalog Tutor - Phonetic Voice</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f9fafc;
-      color: #333;
+      background: #f2f2f2;
       margin: 20px;
     }
     h1 {
       text-align: center;
-      color: #2c3e50;
     }
     .section {
-      background: white;
+      max-width: 600px;
+      margin: 20px auto;
+      background: #fff;
       padding: 20px;
       border-radius: 10px;
-      margin: 20px auto;
-      max-width: 500px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    #prompt {
-      font-size: 1.2rem;
-      color: #e74c3c;
-      margin-bottom: 10px;
     }
     button {
       background: #3498db;
@@ -34,54 +27,44 @@
       padding: 10px 16px;
       border: none;
       border-radius: 6px;
-      cursor: pointer;
-      margin: 5px 5px 10px 0;
       font-size: 1rem;
+      margin-top: 10px;
+      cursor: pointer;
     }
     button:disabled {
       background: #aaa;
-      cursor: not-allowed;
     }
-    #status {
-      font-weight: bold;
-      margin: 10px 0;
-    }
-    #userSpeech, #feedback {
-      background: #f1f3f5;
-      padding: 12px;
-      border: 1px solid #ddd;
+    #status, #userSpeech, #feedback {
+      margin-top: 15px;
+      background: #f8f8f8;
+      padding: 10px;
+      border: 1px solid #ccc;
       border-radius: 6px;
-      margin-top: 10px;
       font-style: italic;
-      min-height: 40px;
     }
     #voicesList {
+      margin-top: 10px;
       font-family: monospace;
       font-size: 0.9rem;
       white-space: pre-wrap;
-      background: #fff;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      margin-top: 10px;
     }
   </style>
 </head>
 <body>
 
-<h1>🗣️ Tagalog Speech Tutor</h1>
+<h1>🗣️ Tagalog Tutor (Phonetic Speaking)</h1>
 
 <div class="section">
-  <div id="prompt">Say this in Tagalog: <strong>"Kamusta ka?"</strong></div>
-  <button id="startBtn">🎤 Start Speaking</button>
+  <div id="prompt">Say this: <strong>"Kamusta ka?"</strong></div>
+  <button id="startBtn">🎤 Start Listening</button>
   <button id="stopBtn" disabled>🛑 Stop</button>
-  <div id="status">Idle</div>
+  <div id="status">Status: Idle</div>
   <div id="userSpeech">You said: <em>...</em></div>
   <div id="feedback">Tutor says: <em>...</em></div>
 </div>
 
 <div class="section">
-  <h3>🔍 Available Voices</h3>
+  <h3>Available Voices</h3>
   <div id="voicesList">Loading voices...</div>
 </div>
 
@@ -89,12 +72,8 @@
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const synth = window.speechSynthesis;
 
-  if (!SpeechRecognition) {
-    alert("Sorry, your browser doesn't support speech recognition. Try Chrome or Edge.");
-  }
-
   const recognition = new SpeechRecognition();
-  recognition.lang = 'tl-PH'; // Tagalog
+  recognition.lang = 'en-US'; // Use English
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
 
@@ -105,53 +84,30 @@
   const feedbackEl = document.getElementById('feedback');
   const voicesListEl = document.getElementById('voicesList');
 
-  const expectedPhrase = "Kamusta ka?";
+  const expectedPhrase = "kamusta ka";
   let voices = [];
   let selectedVoice = null;
 
   function populateVoices() {
     voices = synth.getVoices();
+    voicesListEl.innerHTML = voices.map(v => `${v.name} (${v.lang})${v.default ? " [default]" : ""}`).join("\n");
 
-    if (voices.length === 0) {
-      voicesListEl.textContent = "No voices found.";
-      return;
-    }
+    // Pick female-sounding English voice if possible
+    selectedVoice = voices.find(v =>
+      v.name.toLowerCase().includes('female') ||
+      v.name.toLowerCase().includes('zira') ||
+      v.name.toLowerCase().includes('susan') ||
+      v.name.toLowerCase().includes('emma') ||
+      v.name.toLowerCase().includes('woman')
+    ) || voices.find(v => v.lang.startsWith('en'));
 
-    // Display voices
-    voicesListEl.innerHTML = voices
-      .map(v => `${v.name} (${v.lang})${v.default ? ' [default]' : ''}`)
-      .join('\n');
-
-    console.log("Available voices:", voices);
-
-    // Prefer female Tagalog voice
-    const femaleTagalogVoice = voices.find(v =>
-      v.lang.toLowerCase() === 'tl-ph' &&
-      (v.name.toLowerCase().includes('maria') ||
-       v.name.toLowerCase().includes('female') ||
-       v.name.toLowerCase().includes('woman') ||
-       v.name.toLowerCase().includes('filipina'))
-    );
-
-    const anyTagalogVoice = voices.find(v => v.lang.toLowerCase() === 'tl-ph');
-
-    selectedVoice = femaleTagalogVoice || anyTagalogVoice || null;
-
-    if (selectedVoice) {
-      console.log("Selected voice:", selectedVoice.name);
-      feedbackEl.innerHTML = `Tutor says: <em>Gagamit tayo ng boses: ${selectedVoice.name} (${selectedVoice.lang})</em>`;
-    } else {
-      feedbackEl.innerHTML = `Tutor says: <em>No Tagalog voice found. Using default voice.</em>`;
-    }
+    feedbackEl.innerHTML = `<em>Using voice: ${selectedVoice ? selectedVoice.name : 'default'}</em>`;
   }
 
   function speak(text) {
-    if (!text) return;
     const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'tl-PH';
-    if (selectedVoice) {
-      utter.voice = selectedVoice;
-    }
+    utter.lang = 'en-US';
+    if (selectedVoice) utter.voice = selectedVoice;
     synth.speak(utter);
   }
 
@@ -174,38 +130,43 @@
   };
 
   recognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
+    const transcript = event.results[0][0].transcript.toLowerCase();
     userSpeechEl.innerHTML = `You said: <em>${transcript}</em>`;
 
-    const userSaid = transcript.trim().toLowerCase();
-    const expected = expectedPhrase.trim().toLowerCase();
-
-    if (userSaid === expected) {
-      const praise = "Magaling! Tama ang pagkakasabi mo.";
-      feedbackEl.innerHTML = `Tutor says: <em>${praise}</em>`;
-      speak(praise);
+    if (transcript.includes(expectedPhrase)) {
+      const spokenFeedback = "Correct! Kah-moos-tah kah!"; // Phonetic
+      feedbackEl.innerHTML = `Tutor says: <em>Correct! "Kamusta ka!"</em>`;
+      speak(spokenFeedback);
     } else {
-      const correction = `Nakuha ko: "${transcript}". Ang tamang sagot ay "Kamusta ka?". Subukan mo ulit.`;
-      feedbackEl.innerHTML = `Tutor says: <em>${correction}</em>`;
-      speak(correction);
+      // Show actual transcript and correct Tagalog
+      const displayedFeedback = `I received: "${transcript}". Try again: "Kamusta ka."`;
+      const spokenPhonetic = `I received: ${convertToPhonetic(transcript)}. Try again: Kah-moos-tah kah.`;
+      feedbackEl.innerHTML = `Tutor says: <em>${displayedFeedback}</em>`;
+      speak(spokenPhonetic);
     }
   };
 
-  startBtn.addEventListener('click', () => {
-    recognition.start();
-  });
+  function convertToPhonetic(text) {
+    // Simple phonetic mapping for common Tagalog words
+    return text
+      .replace(/kamusta/gi, "kah-moos-tah")
+      .replace(/kumusta/gi, "koo-moos-tah")
+      .replace(/ka/gi, "kah")
+      .replace(/po/gi, "poh")
+      .replace(/ako/gi, "ah-koh")
+      .replace(/ikaw/gi, "ee-kahw")
+      .replace(/salamat/gi, "sah-lah-maht")
+      .replace(/mahal kita/gi, "mah-hahl kee-tah");
+  }
 
-  stopBtn.addEventListener('click', () => {
-    recognition.stop();
-  });
+  startBtn.addEventListener('click', () => recognition.start());
+  stopBtn.addEventListener('click', () => recognition.stop());
 
   if (speechSynthesis.onvoiceschanged !== undefined) {
     speechSynthesis.onvoiceschanged = populateVoices;
   }
 
-  window.onload = () => {
-    populateVoices();
-  };
+  window.onload = populateVoices;
 </script>
 
 </body>
