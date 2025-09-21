@@ -475,12 +475,14 @@
             updateSentenceCounter();
         }
 
-        // Setup speech recognition
+        // Setup speech recognition - creates fresh instance every time
         function setupSpeechRecognition() {
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                // Always create a new recognition instance
                 recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
                 recognition.continuous = false;
                 recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
                 recognition.lang = currentLanguage === 'tagalog' ? 'tl-PH' : 'en-US';
                 
                 recognition.onstart = function() {
@@ -491,16 +493,24 @@
                 
                 recognition.onresult = function(event) {
                     const transcript = event.results[0][0].transcript.toLowerCase().trim();
+                    // Stop and clean up current recognition immediately
+                    stopCurrentRecognition();
                     processWord(transcript);
                 };
                 
                 recognition.onerror = function(event) {
                     console.error('Speech recognition error:', event.error);
-                    setStatus('Could not hear you clearly. Try again!', 'error');
-                    isListening = false;
-                    updateMicIndicator();
+                    stopCurrentRecognition();
                     
                     if (event.error === 'no-speech') {
+                        setStatus('No speech detected. Try again!', 'error');
+                        setTimeout(() => {
+                            if (currentWordIndex < currentWords.length) {
+                                startListening();
+                            }
+                        }, 1500);
+                    } else {
+                        setStatus('Could not hear you clearly. Try again!', 'error');
                         setTimeout(() => {
                             if (currentWordIndex < currentWords.length) {
                                 startListening();
@@ -516,6 +526,19 @@
             } else {
                 showError('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
             }
+        }
+
+        // Stop current recognition and clean up
+        function stopCurrentRecognition() {
+            if (recognition && isListening) {
+                try {
+                    recognition.abort(); // Immediately stop and clean up
+                } catch (e) {
+                    console.log('Recognition already stopped');
+                }
+            }
+            isListening = false;
+            updateMicIndicator();
         }
 
         // Display current sentence
@@ -604,7 +627,8 @@
                 
                 setTimeout(() => {
                     words[currentWordIndex].classList.remove('incorrect');
-                    startListening();
+                    setStatus('Ready! Say the word again.', '');
+                    startListening(); // This will create a fresh recognition instance
                 }, 4000);
             }
         }
@@ -645,15 +669,31 @@
             speechSynthesis.speak(utterance);
         }
 
-        // Start listening
+        // Start listening - creates fresh recognition instance each time
         function startListening() {
-            if (recognition && !isListening && currentWordIndex < currentWords.length) {
-                try {
-                    recognition.start();
-                } catch (error) {
-                    console.error('Error starting recognition:', error);
+            if (currentWordIndex >= currentWords.length) return;
+            
+            // Stop any existing recognition first
+            stopCurrentRecognition();
+            
+            // Wait a bit then create fresh recognition instance
+            setTimeout(() => {
+                setupSpeechRecognition(); // Create brand new instance
+                
+                if (recognition && !isListening) {
+                    try {
+                        recognition.start();
+                    } catch (error) {
+                        console.error('Error starting recognition:', error);
+                        // If start fails, try again after a short delay
+                        setTimeout(() => {
+                            if (currentWordIndex < currentWords.length) {
+                                startListening();
+                            }
+                        }, 1000);
+                    }
                 }
-            }
+            }, 200); // Small delay to ensure clean restart
         }
 
         // Start reading
@@ -666,11 +706,7 @@
 
         // Stop reading
         function stopReading() {
-            if (recognition && isListening) {
-                recognition.stop();
-            }
-            isListening = false;
-            updateMicIndicator();
+            stopCurrentRecognition();
             setStatus('Reading stopped. Click "Start Reading" to continue!', '');
         }
 
@@ -691,13 +727,11 @@
 
         // Toggle language
         function toggleLanguage() {
+            // Stop current recognition when switching languages
+            stopCurrentRecognition();
+            
             currentLanguage = currentLanguage === 'tagalog' ? 'english' : 'tagalog';
             currentSentenceIndex = 0;
-            
-            // Update recognition language
-            if (recognition) {
-                recognition.lang = currentLanguage === 'tagalog' ? 'tl-PH' : 'en-US';
-            }
             
             displayCurrentSentence();
             updateProgress();
