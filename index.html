@@ -493,27 +493,33 @@
                 
                 recognition.onresult = function(event) {
                     const transcript = event.results[0][0].transcript.toLowerCase().trim();
-                    // Stop and clean up current recognition immediately
-                    stopCurrentRecognition();
+                    // ONLY restart engine after we actually received a word
+                    isListening = false;
+                    updateMicIndicator();
                     processWord(transcript);
                 };
                 
                 recognition.onerror = function(event) {
                     console.error('Speech recognition error:', event.error);
-                    stopCurrentRecognition();
+                    isListening = false;
+                    updateMicIndicator();
                     
                     if (event.error === 'no-speech') {
-                        setStatus('No speech detected. Try again!', 'error');
+                        setStatus('I\'m still listening... Say the highlighted word!', 'listening');
+                        // DON'T restart engine, just continue with same instance
                         setTimeout(() => {
-                            if (currentWordIndex < currentWords.length) {
-                                startListening();
+                            if (currentWordIndex < currentWords.length && !isListening) {
+                                continueListening();
                             }
-                        }, 1500);
+                        }, 1000);
+                    } else if (event.error === 'audio-capture') {
+                        setStatus('Microphone issue. Please check your microphone!', 'error');
                     } else {
-                        setStatus('Could not hear you clearly. Try again!', 'error');
+                        setStatus('Could not hear you clearly. Still listening...', 'error');
+                        // Continue with same engine for other errors too
                         setTimeout(() => {
-                            if (currentWordIndex < currentWords.length) {
-                                startListening();
+                            if (currentWordIndex < currentWords.length && !isListening) {
+                                continueListening();
                             }
                         }, 1000);
                     }
@@ -522,9 +528,28 @@
                 recognition.onend = function() {
                     isListening = false;
                     updateMicIndicator();
+                    // Only restart if we haven't processed a word yet
+                    if (currentWordIndex < currentWords.length) {
+                        setTimeout(() => {
+                            continueListening();
+                        }, 300);
+                    }
                 };
             } else {
                 showError('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
+            }
+        }
+
+        // Continue listening with same engine (for no-speech situations)
+        function continueListening() {
+            if (recognition && !isListening && currentWordIndex < currentWords.length) {
+                try {
+                    recognition.start();
+                } catch (error) {
+                    console.error('Error continuing recognition:', error);
+                    // If we can't continue with same engine, create a new one
+                    setTimeout(() => startListening(), 500);
+                }
             }
         }
 
@@ -543,10 +568,27 @@
 
         // Display current sentence
         function displayCurrentSentence() {
+            // Safety check for sentences data
+            if (!sentences[currentLanguage] || !sentences[currentLanguage][currentSentenceIndex]) {
+                setStatus('Error: No sentences available!', 'error');
+                return;
+            }
+            
             const sentence = sentences[currentLanguage][currentSentenceIndex];
             currentWords = sentence.toLowerCase().replace(/[.,!?]/g, '').split(' ');
             
+            // Safety check for sentence processing
+            if (!currentWords || currentWords.length === 0) {
+                setStatus('Error: Could not process sentence!', 'error');
+                return;
+            }
+            
             const sentenceElement = document.getElementById('sentence');
+            if (!sentenceElement) {
+                console.error('Sentence element not found');
+                return;
+            }
+            
             sentenceElement.innerHTML = '';
             
             currentWords.forEach((word, index) => {
@@ -565,12 +607,21 @@
         // Highlight current word
         function highlightCurrentWord() {
             const words = document.querySelectorAll('.word');
+            
+            // Safety check - make sure DOM elements exist
+            if (!words || words.length === 0) {
+                console.error('No word elements found');
+                return;
+            }
+            
             words.forEach((word, index) => {
-                word.classList.remove('current', 'correct', 'incorrect');
-                if (index === currentWordIndex) {
-                    word.classList.add('current');
-                } else if (index < currentWordIndex) {
-                    word.classList.add('correct');
+                if (word && word.classList) { // Safety check for each element
+                    word.classList.remove('current', 'correct', 'incorrect');
+                    if (index === currentWordIndex) {
+                        word.classList.add('current');
+                    } else if (index < currentWordIndex) {
+                        word.classList.add('correct');
+                    }
                 }
             });
         }
@@ -694,6 +745,86 @@
                     }
                 }
             }, 200); // Small delay to ensure clean restart
+        }
+
+        // Process spoken word - NOW with engine restart only after actual word
+        function processWord(transcript) {
+            // Safety check - make sure we have valid data
+            if (currentWordIndex >= currentWords.length || !currentWords.length) {
+                setStatus('Please start a new sentence!', 'error');
+                return;
+            }
+
+            const expectedWord = currentWords[currentWordIndex].toLowerCase();
+            const words = document.querySelectorAll('.word');
+            
+            // Safety check - make sure DOM elements exist
+            if (!words || words.length === 0 || !words[currentWordIndex]) {
+                setStatus('Error: Please refresh the page!', 'error');
+                return;
+            }
+            
+            // Normalize the spoken word (remove common speech recognition artifacts)
+            const normalizedSpoken = normalizeWord(transcript);
+            const normalizedExpected = normalizeWord(expectedWord);
+            
+            if (normalizedSpoken === normalizedExpected || 
+                normalizedSpoken.includes(normalizedExpected) || 
+                normalizedExpected.includes(normalizedSpoken)) {
+                
+                // Correct word - with safety checks
+                if (words[currentWordIndex]) {
+                    words[currentWordIndex].classList.remove('current');
+                    words[currentWordIndex].classList.add('correct');
+                }
+                
+                setStatus('Great job! 🎉', 'success');
+                playSuccessSound();
+                
+                currentWordIndex++;
+                
+                if (currentWordIndex < currentWords.length) {
+                    setTimeout(() => {
+                        highlightCurrentWord();
+                        // NOW restart engine for next word since we got a successful result
+                        startListening();
+                    }, 1000);
+                } else {
+                    // Sentence completed
+                    setStatus('Excellent! Sentence completed! 🌟', 'success');
+                    createCelebration();
+                    updateProgress();
+                    
+                    setTimeout(() => {
+                        if (currentSentenceIndex < sentences[currentLanguage].length - 1) {
+                            nextSentence();
+                        } else {
+                            setStatus('Congratulations! You completed all sentences! 🏆', 'success');
+                        }
+                    }, 2000);
+                }
+            } else {
+                // Incorrect word - with safety checks
+                if (words[currentWordIndex]) {
+                    words[currentWordIndex].classList.add('incorrect');
+                }
+                
+                setStatus(`Try again! Listen carefully: "${expectedWord}"`, 'error');
+                
+                // Pronounce the word slowly twice with syllables
+                setTimeout(() => pronounceWordSlowly(expectedWord), 500);
+                setTimeout(() => pronounceWordSlowly(expectedWord), 2500);
+                
+                setTimeout(() => {
+                    // Safety check before removing class
+                    if (words[currentWordIndex]) {
+                        words[currentWordIndex].classList.remove('incorrect');
+                    }
+                    setStatus('Ready! Say the word again.', '');
+                    // Restart engine for retry since we got a result (even if wrong)
+                    startListening();
+                }, 4000);
+            }
         }
 
         // Start reading
