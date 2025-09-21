@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Reading Tutor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .title {
+            color: #2c3e50;
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+        }
+
+        .language-toggle {
+            background: linear-gradient(45deg, #9b59b6, #8e44ad);
+            color: white;
+            box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
+        }
+
+        .language-toggle:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(155, 89, 182, 0.4);
+        }
+
+        .sentence-container {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+            border: 3px solid #e9ecef;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sentence {
+            font-size: 2rem;
+            line-height: 1.6;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .word {
+            display: inline-block;
+            margin: 0 8px 10px 8px;
+            padding: 8px 16px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .word:hover {
+            background: #ecf0f1;
+            transform: translateY(-2px);
+        }
+
+        .word.current {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            color: white;
+            border-color: #d68910;
+            animation: pulse 1.5s infinite;
+        }
+
+        .word.correct {
+            background: linear-gradient(45deg, #27ae60, #219a52);
+            color: white;
+            border-color: #1e8449;
+        }
+
+        .word.incorrect {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+            border-color: #a93226;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .status {
+            margin: 20px 0;
+            font-size: 1.2rem;
+            font-weight: bold;
+            min-height: 30px;
+        }
+
+        .status.listening {
+            color: #3498db;
+            animation: pulse 1s infinite;
+        }
+
+        .status.success {
+            color: #27ae60;
+        }
+
+        .status.error {
+            color: #e74c3c;
+        }
+
+        .progress-bar {
+            background: #ecf0f1;
+            border-radius: 15px;
+            height: 12px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+            border-radius: 15px;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .sentence-counter {
+            color: #7f8c8d;
+            font-size: 1rem;
+            margin: 10px 0;
+        }
+
+        .mic-indicator {
+            width: 20px;
+            height: 20px;
+            background: #e74c3c;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .mic-indicator.active {
+            background: #27ae60;
+            animation: pulse 1s infinite;
+        }
+
+        .celebration {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #ff6b6b;
+            animation: confetti-fall 3s linear forwards;
+        }
+
+        @keyframes confetti-fall {
+            to {
+                transform: translateY(100vh) rotate(720deg);
+            }
+        }
+
+        .error-message {
+            background: #fadbd8;
+            color: #a93226;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #e74c3c;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+            
+            .sentence {
+                font-size: 1.5rem;
+            }
+            
+            .word {
+                margin: 0 4px 8px 4px;
+                padding: 6px 12px;
+                font-size: 1.4rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">📚 Reading Tutor</h1>
+            <p class="subtitle">Learn to read word by word with voice recognition!</p>
+        </div>
+
+        <div class="controls">
+            <button class="btn language-toggle" onclick="toggleLanguage()">
+                <span id="languageText">Switch to English</span>
+            </button>
+            <button class="btn btn-primary" onclick="startReading()">
+                🎤 Start Reading
+            </button>
+            <button class="btn btn-secondary" onclick="stopReading()">
+                ⏹️ Stop
+            </button>
+            <button class="btn btn-primary" onclick="nextSentence()">
+                ⏭️ Next Sentence
+            </button>
+        </div>
+
+        <div class="sentence-counter">
+            Sentence <span id="currentSentenceNum">1</span> of <span id="totalSentences">10</span>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="sentence-container">
+            <div class="sentence" id="sentence"></div>
+        </div>
+
+        <div class="status" id="status">
+            Click "Start Reading" to begin! 
+            <span class="mic-indicator" id="micIndicator"></span>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+    </div>
+
+    <div class="celebration" id="celebration"></div>
+
+    <script>
+        // Sentences database
+        const sentences = {
+            tagalog: [
+                "Ang pusa ay tulog sa kama.",
+                "Kumakain ako ng mansanas.",
+                "Mahal ko ang pamilya ko.",
+                "Ang araw ay sumisikat.",
+                "Naglalaro ang mga bata sa parke.",
+                "Masaya ako ngayong araw.",
+                "Ang bahay namin ay malaki.",
+                "Nagbabasa ako ng libro.",
+                "Ang tubig ay malamig.",
+                "Nakita ko ang ibon sa puno."
+            ],
+            english: [
+                "The cat sleeps on the bed.",
+                "I eat an apple every day.",
+                "I love my family very much.",
+                "The sun shines so bright.",
+                "Children play in the park happily.",
+                "I am happy today and always.",
+                "Our house is very big and nice.",
+                "I read a book about animals.",
+                "The water is cold and fresh.",
+                "I saw a bird in the tree."
+            ]
+        };
+
+        // Word pronunciation database with syllables
+        const wordSyllables = {
+            // Tagalog words
+            "ang": ["ang"],
+            "pusa": ["pu-sa"],
+            "ay": ["ay"],
+            "tulog": ["tu-log"],
+            "sa": ["sa"],
+            "kama": ["ka-ma"],
+            "kumakain": ["ku-ma-ka-in"],
+            "ako": ["a-ko"],
+            "ng": ["ng"],
+            "mansanas": ["man-sa-nas"],
+            "mahal": ["ma-hal"],
+            "ko": ["ko"],
+            "pamilya": ["pa-mil-ya"],
+            "araw": ["a-raw"],
+            "sumisikat": ["su-mi-si-kat"],
+            "naglalaro": ["nag-la-la-ro"],
+            "mga": ["mga"],
+            "bata": ["ba-ta"],
+            "parke": ["par-ke"],
+            "masaya": ["ma-sa-ya"],
+            "ngayong": ["nga-yong"],
+            "bahay": ["ba-hay"],
+            "namin": ["na-min"],
+            "malaki": ["ma-la-ki"],
+            "nagbabasa": ["nag-ba-ba-sa"],
+            "libro": ["lib-ro"],
+            "tubig": ["tu-big"],
+            "malamig": ["ma-la-mig"],
+            "nakita": ["na-ki-ta"],
+            "ibon": ["i-bon"],
+            "puno": ["pu-no"],
+
+            // English words
+            "the": ["the"],
+            "cat": ["cat"],
+            "sleeps": ["sleeps"],
+            "on": ["on"],
+            "bed": ["bed"],
+            "i": ["I"],
+            "eat": ["eat"],
+            "an": ["an"],
+            "apple": ["ap-ple"],
+            "every": ["ev-ery"],
+            "day": ["day"],
+            "love": ["love"],
+            "my": ["my"],
+            "family": ["fam-ily"],
+            "very": ["ver-y"],
+            "much": ["much"],
+            "sun": ["sun"],
+            "shines": ["shines"],
+            "so": ["so"],
+            "bright": ["bright"],
+            "children": ["chil-dren"],
+            "play": ["play"],
+            "in": ["in"],
+            "park": ["park"],
+            "happily": ["hap-pi-ly"],
+            "am": ["am"],
+            "happy": ["hap-py"],
+            "today": ["to-day"],
+            "and": ["and"],
+            "always": ["al-ways"],
+            "our": ["our"],
+            "house": ["house"],
+            "is": ["is"],
+            "big": ["big"],
+            "nice": ["nice"],
+            "read": ["read"],
+            "a": ["a"],
+            "book": ["book"],
+            "about": ["a-bout"],
+            "animals": ["an-i-mals"],
+            "water": ["wa-ter"],
+            "cold": ["cold"],
+            "fresh": ["fresh"],
+            "saw": ["saw"],
+            "bird": ["bird"],
+            "tree": ["tree"]
+        };
+
+        // Global variables
+        let currentLanguage = 'tagalog';
+        let currentSentenceIndex = 0;
+        let currentWordIndex = 0;
+        let currentWords = [];
+        let recognition = null;
+        let isListening = false;
+        let speechSynthesis = window.speechSynthesis;
+
+        // Initialize the app
+        function init() {
+            setupSpeechRecognition();
+            displayCurrentSentence();
+            updateProgress();
+            updateSentenceCounter();
+        }
+
+        // Setup speech recognition
+        function setupSpeechRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = currentLanguage === 'tagalog' ? 'tl-PH' : 'en-US';
+                
+                recognition.onstart = function() {
+                    isListening = true;
+                    updateMicIndicator();
+                    setStatus('Listening... Say the highlighted word!', 'listening');
+                };
+                
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript.toLowerCase().trim();
+                    processWord(transcript);
+                };
+                
+                recognition.onerror = function(event) {
+                    console.error('Speech recognition error:', event.error);
+                    setStatus('Could not hear you clearly. Try again!', 'error');
+                    isListening = false;
+                    updateMicIndicator();
+                    
+                    if (event.error === 'no-speech') {
+                        setTimeout(() => {
+                            if (currentWordIndex < currentWords.length) {
+                                startListening();
+                            }
+                        }, 1000);
+                    }
+                };
+                
+                recognition.onend = function() {
+                    isListening = false;
+                    updateMicIndicator();
+                };
+            } else {
+                showError('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
+            }
+        }
+
+        // Display current sentence
+        function displayCurrentSentence() {
+            const sentence = sentences[currentLanguage][currentSentenceIndex];
+            currentWords = sentence.toLowerCase().replace(/[.,!?]/g, '').split(' ');
+            
+            const sentenceElement = document.getElementById('sentence');
+            sentenceElement.innerHTML = '';
+            
+            currentWords.forEach((word, index) => {
+                const wordSpan = document.createElement('span');
+                wordSpan.className = 'word';
+                wordSpan.textContent = word;
+                wordSpan.onclick = () => pronounceWord(word);
+                sentenceElement.appendChild(wordSpan);
+            });
+            
+            currentWordIndex = 0;
+            highlightCurrentWord();
+            updateSentenceCounter();
+        }
+
+        // Highlight current word
+        function highlightCurrentWord() {
+            const words = document.querySelectorAll('.word');
+            words.forEach((word, index) => {
+                word.classList.remove('current', 'correct', 'incorrect');
+                if (index === currentWordIndex) {
+                    word.classList.add('current');
+                } else if (index < currentWordIndex) {
+                    word.classList.add('correct');
+                }
+            });
+        }
+
+        // Process spoken word
+        function processWord(spokenWord) {
+            const expectedWord = currentWords[currentWordIndex].toLowerCase();
+            const words = document.querySelectorAll('.word');
+            
+            // Normalize the spoken word (remove common speech recognition artifacts)
+            const normalizedSpoken = normalizeWord(spokenWord);
+            const normalizedExpected = normalizeWord(expectedWord);
+            
+            if (normalizedSpoken === normalizedExpected || 
+                normalizedSpoken.includes(normalizedExpected) || 
+                normalizedExpected.includes(normalizedSpoken)) {
+                
+                // Correct word
+                words[currentWordIndex].classList.remove('current');
+                words[currentWordIndex].classList.add('correct');
+                
+                setStatus('Great job! 🎉', 'success');
+                playSuccessSound();
+                
+                currentWordIndex++;
+                
+                if (currentWordIndex < currentWords.length) {
+                    setTimeout(() => {
+                        highlightCurrentWord();
+                        startListening();
+                    }, 1000);
+                } else {
+                    // Sentence completed
+                    setStatus('Excellent! Sentence completed! 🌟', 'success');
+                    createCelebration();
+                    updateProgress();
+                    
+                    setTimeout(() => {
+                        if (currentSentenceIndex < sentences[currentLanguage].length - 1) {
+                            nextSentence();
+                        } else {
+                            setStatus('Congratulations! You completed all sentences! 🏆', 'success');
+                        }
+                    }, 2000);
+                }
+            } else {
+                // Incorrect word
+                words[currentWordIndex].classList.add('incorrect');
+                setStatus(`Try again! Listen carefully: "${expectedWord}"`, 'error');
+                
+                // Pronounce the word slowly twice with syllables
+                setTimeout(() => pronounceWordSlowly(expectedWord), 500);
+                setTimeout(() => pronounceWordSlowly(expectedWord), 2500);
+                
+                setTimeout(() => {
+                    words[currentWordIndex].classList.remove('incorrect');
+                    startListening();
+                }, 4000);
+            }
+        }
+
+        // Normalize word for comparison
+        function normalizeWord(word) {
+            return word.toLowerCase()
+                      .replace(/[.,!?]/g, '')
+                      .replace(/\s+/g, ' ')
+                      .trim();
+        }
+
+        // Pronounce word slowly with syllables
+        function pronounceWordSlowly(word) {
+            const syllables = wordSyllables[word.toLowerCase()] || [word];
+            const utterance = new SpeechSynthesisUtterance(syllables.join(' '));
+            utterance.rate = 0.3; // Very slow
+            utterance.volume = 1.0; // Loud
+            utterance.lang = currentLanguage === 'tagalog' ? 'tl-PH' : 'en-US';
+            speechSynthesis.speak(utterance);
+        }
+
+        // Pronounce word normally
+        function pronounceWord(word) {
+            const utterance = new SpeechSynthesisUtterance(word);
+            utterance.rate = 0.8;
+            utterance.volume = 0.8;
+            utterance.lang = currentLanguage === 'tagalog' ? 'tl-PH' : 'en-US';
+            speechSynthesis.speak(utterance);
+        }
+
+        // Play success sound (using speech synthesis as a chime)
+        function playSuccessSound() {
+            const utterance = new SpeechSynthesisUtterance('ding');
+            utterance.rate = 2.0;
+            utterance.volume = 0.3;
+            utterance.pitch = 2.0;
+            speechSynthesis.speak(utterance);
+        }
+
+        // Start listening
+        function startListening() {
+            if (recognition && !isListening && currentWordIndex < currentWords.length) {
+                try {
+                    recognition.start();
+                } catch (error) {
+                    console.error('Error starting recognition:', error);
+                }
+            }
+        }
+
+        // Start reading
+        function startReading() {
+            if (currentWordIndex >= currentWords.length) {
+                displayCurrentSentence();
+            }
+            startListening();
+        }
+
+        // Stop reading
+        function stopReading() {
+            if (recognition && isListening) {
+                recognition.stop();
+            }
+            isListening = false;
+            updateMicIndicator();
+            setStatus('Reading stopped. Click "Start Reading" to continue!', '');
+        }
+
+        // Next sentence
+        function nextSentence() {
+            if (currentSentenceIndex < sentences[currentLanguage].length - 1) {
+                currentSentenceIndex++;
+                displayCurrentSentence();
+                updateProgress();
+                setStatus('Ready for the next sentence!', '');
+            } else {
+                currentSentenceIndex = 0;
+                displayCurrentSentence();
+                updateProgress();
+                setStatus('Starting over with the first sentence!', '');
+            }
+        }
+
+        // Toggle language
+        function toggleLanguage() {
+            currentLanguage = currentLanguage === 'tagalog' ? 'english' : 'tagalog';
+            currentSentenceIndex = 0;
+            
+            // Update recognition language
+            if (recognition) {
+                recognition.lang = currentLanguage === 'tagalog' ? 'tl-PH' : 'en-US';
+            }
+            
+            displayCurrentSentence();
+            updateProgress();
+            
+            const languageText = document.getElementById('languageText');
+            languageText.textContent = currentLanguage === 'tagalog' ? 'Switch to English' : 'Switch to Tagalog';
+            
+            setStatus(`Switched to ${currentLanguage.charAt(0).toUpperCase() + currentLanguage.slice(1)}!`, 'success');
+        }
+
+        // Update progress bar
+        function updateProgress() {
+            const progress = ((currentSentenceIndex) / sentences[currentLanguage].length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        // Update sentence counter
+        function updateSentenceCounter() {
+            document.getElementById('currentSentenceNum').textContent = currentSentenceIndex + 1;
+            document.getElementById('totalSentences').textContent = sentences[currentLanguage].length;
+        }
+
+        // Set status message
+        function setStatus(message, className) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = 'status ' + (className || '');
+        }
+
+        // Update microphone indicator
+        function updateMicIndicator() {
+            const indicator = document.getElementById('micIndicator');
+            if (isListening) {
+                indicator.classList.add('active');
+            } else {
+                indicator.classList.remove('active');
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        // Create celebration animation
+        function createCelebration() {
+            const celebration = document.getElementById('celebration');
+            const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff'];
+            
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDelay = Math.random() * 3 + 's';
+                confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                celebration.appendChild(confetti);
+                
+                setTimeout(() => {
+                    confetti.remove();
+                }, 5000);
+            }
+        }
+
+        // Initialize app when page loads
+        window.addEventListener('load', init);
+
+        // Handle browser compatibility
+        window.addEventListener('beforeunload', function() {
+            if (speechSynthesis.speaking) {
+                speechSynthesis.cancel();
+            }
+        });
+    </script>
+</body>
+</html>
